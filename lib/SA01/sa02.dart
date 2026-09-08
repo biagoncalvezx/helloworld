@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-void main() {
+   void main() {
   runApp(const MyApp());
 }
 
@@ -26,7 +25,7 @@ class BelezaPage extends StatefulWidget {
 
 
 class _BelezaPageState extends State<BelezaPage> {
-  // Índice da BottomNavigationBar
+  
   int _selectedIndex = 0;
 
   
