@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 
 void main() {
@@ -14,23 +12,26 @@ class MeuApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Meu Mapa',
-      home: const MapaPage(),
+      title: 'Minha Localização',
+      home: const LocalizacaoPage(),
     );
   }
 }
 
-class MapaPage extends StatefulWidget {
-  const MapaPage({super.key});
+class LocalizacaoPage extends StatefulWidget {
+  const LocalizacaoPage({super.key});
 
   @override
-  State<MapaPage> createState() => _MapaPageState();
+  State<LocalizacaoPage> createState() => _LocalizacaoPageState();
 }
 
-class _MapaPageState extends State<MapaPage> {
-  Position? posicao;
+class _LocalizacaoPageState extends State<LocalizacaoPage> {
+  double latitude = 0;
+  double longitude = 0;
 
-  final MapController mapaController = MapController();
+  double latitudeCasa = -21.491722; // Coordenada da casa
+  double longitudeCasa = -47.004167; // Coordenada da casa
+  double distancia = 0;
 
   Future<void> buscarLocalizacao() async {
     bool servicoAtivo = await Geolocator.isLocationServiceEnabled();
@@ -51,66 +52,73 @@ class _MapaPageState extends State<MapaPage> {
       }
     }
 
-    Position novaPosicao = await Geolocator.getCurrentPosition();
+    Position posicao = await Geolocator.getCurrentPosition();
 
     setState(() {
-      posicao = novaPosicao;
+      latitude = posicao.latitude;
+      longitude = posicao.longitude;
+
+      distancia = Geolocator.distanceBetween(
+        latitude,
+        longitude,
+        latitudeCasa,
+        longitudeCasa,
+      );
     });
 
-    mapaController.move(
-        LatLng(novaPosicao.latitude, novaPosicao.longitude),
-        16,
-      );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    buscarLocalizacao();
+    print('Latitude: $latitude');
+    print('Longitude: $longitude');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Meu Mapa')),
-      body: FlutterMap(
-        mapController: mapaController,
+      appBar: AppBar(title: const Text('Minha Localização')),
 
-        options: const MapOptions(
-          initialCenter: LatLng(
-            -21.470000,
-            -47.030000,
-          ), // Coordenadas iniciais do mapa
-          initialZoom: 13,
-        ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsetsGeometry.all(20),
 
-        children: [
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.example.mapa_flutter',
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(Icons.location_on, size: 60, color: Colors.blue),
+
+              const SizedBox(height: 20),
+
+              const Text(
+                'Localização atual',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+
+              const SizedBox(height: 30),
+
+              Text('Latitude: $latitude', style: const TextStyle(fontSize: 18)),
+
+              const SizedBox(height: 20),
+
+              Text(
+                'Longitude: $longitude',
+                style: const TextStyle(fontSize: 18),
+              ),
+
+              Text(
+                'Distância até casa: ${distancia.toStringAsFixed(0)} metros',
+               style: const TextStyle(fontSize: 18),
+              ),
+
+              const SizedBox(height: 30),
+
+              const SizedBox(height: 30),
+
+              ElevatedButton(
+                onPressed: buscarLocalizacao,
+                child: const Text('Buscar Localização'),
+              ),
+            ], // Fim do Column
           ),
-
-          if (posicao != null)
-            MarkerLayer(
-              markers: [
-                Marker(
-                  point: LatLng(posicao!.latitude, posicao!.longitude),
-                  width: 50.0,
-                  height: 50.0,
-                  child: const Icon(
-                    Icons.location_on,
-                    color: Colors.red,
-                    size: 50.0,
-                  ),
-                ),
-              ],
-            ),
-        ],
-      ),
-
-      floatingActionButton: FloatingActionButton(
-        onPressed: buscarLocalizacao,
-        child: const Icon(Icons.my_location),
+        ),
       ),
     );
   }
