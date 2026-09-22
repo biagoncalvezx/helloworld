@@ -1,32 +1,27 @@
-// database_helper.dart
-// DatabaseHelper é uma classe utilitária criada para centralizar e gerenciar todas as operações de conexão, criação, migração e a manipulação do banco de dados SQLite.
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'tarefa.dart';
 
 class DatabaseHelper {
-  // instância única do banco
   static Database? _database;
 
-  // Retorna o banco.
-  // Se ainda não existir, cria.
   Future<Database> get database async {
     if (_database != null) {
       return _database!;
     }
 
     _database = await _initDatabase();
+
     return _database!;
   }
 
-  // criação/abertura do banco
   Future<Database> _initDatabase() async {
     final caminho = join(await getDatabasesPath(), 'tarefas.db');
+
     return await openDatabase(
       caminho,
       version: 1,
-      // executado apenas na primeira vez que o banco é criado
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE tarefas(
@@ -37,8 +32,9 @@ class DatabaseHelper {
           )
         ''');
       },
-    ); 
+    );
   }
+
   // CREATE
   Future<int> inserirTarefa(Tarefa tarefa) async {
     final db = await database;
@@ -48,6 +44,7 @@ class DatabaseHelper {
   // READ
   Future<List<Tarefa>> listarTarefas() async {
     final db = await database;
+
     final resultado = await db.query('tarefas', orderBy: 'id DESC');
 
     return resultado.map((map) => Tarefa.fromMap(map)).toList();
@@ -67,11 +64,7 @@ class DatabaseHelper {
   // DELETE
   Future<int> excluirTarefa(int id) async {
     final db = await database;
-    return await db.delete(
-      'tarefas',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
 
+    return await db.delete('tarefas', where: 'id = ?', whereArgs: [id]);
+  }
 }
