@@ -1,125 +1,235 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
+
+import 'tarefa.dart';
+import 'database_helper.dart';
 
 void main() {
-  runApp(const MeuApp());
+  runApp(const MeuAplicativo());
 }
 
-class MeuApp extends StatelessWidget {
-  const MeuApp({super.key});
+class MeuAplicativo extends StatelessWidget {
+  const MeuAplicativo({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Minha Localização',
-      home: const LocalizacaoPage(),
+      title: 'Tarefas',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
+      ),
+      home: const TarefasPage(),
     );
   }
 }
 
-class LocalizacaoPage extends StatefulWidget {
-  const LocalizacaoPage({super.key});
+class TarefasPage extends StatefulWidget {
+  const TarefasPage({super.key});
 
   @override
-  State<LocalizacaoPage> createState() => _LocalizacaoPageState();
+  State<TarefasPage> createState() => _TarefasPageState();
 }
 
-class _LocalizacaoPageState extends State<LocalizacaoPage> {
-  double latitude = 0;
-  double longitude = 0;
+class _TarefasPageState extends State<TarefasPage> {
+  final DatabaseHelper dbHelper = DatabaseHelper();
 
-  double latitudeCasa = -21.491722; // Coordenada da casa
-  double longitudeCasa = -47.004167; // Coordenada da casa
-  double distancia = 0;
+  final TextEditingController descricaoController = TextEditingController();
 
-  Future<void> buscarLocalizacao() async {
-    bool servicoAtivo = await Geolocator.isLocationServiceEnabled();
+  String prioridadeSelecionada = 'Média';
 
-    if (!servicoAtivo) {
-      await Geolocator.openLocationSettings();
+  List<Tarefa> tarefas = [];
+
+  @override
+  void initState() {
+    super.initState();
+
+    carregarTarefas();
+  }
+
+  // READ
+  Future<void> carregarTarefas() async {
+    final resultado = await dbHelper.listarTarefas();
+
+    setState(() {
+      tarefas = resultado;
+    });
+  }
+
+  // CREATE
+  Future<void> adicionarTarefa() async {
+    final descricao = descricaoController.text.trim();
+
+    if (descricao.isEmpty) {
       return;
     }
 
-    LocationPermission permissao = await Geolocator.checkPermission();
+    final tarefa = Tarefa(
+      descricao: descricao,
+      prioridade: prioridadeSelecionada,
+      status: 'Pendente',
+    );
 
-    if (permissao == LocationPermission.denied) {
-      permissao = await Geolocator.requestPermission();
+    await dbHelper.inserirTarefa(tarefa);
 
-      if (permissao == LocationPermission.denied ||
-          permissao == LocationPermission.deniedForever) {
-        return;
-      }
-    }
-
-    Position posicao = await Geolocator.getCurrentPosition();
+    descricaoController.clear();
 
     setState(() {
-      latitude = posicao.latitude;
-      longitude = posicao.longitude;
-
-      distancia = Geolocator.distanceBetween(
-        latitude,
-        longitude,
-        latitudeCasa,
-        longitudeCasa,
-      );
+      prioridadeSelecionada = 'Média';
     });
 
-    print('Latitude: $latitude');
-    print('Longitude: $longitude');
+    await carregarTarefas();
+  }
+
+  // UPDATE
+  Future<void> concluirTarefa(Tarefa tarefa) async {
+    final tarefaAtualizada = Tarefa(
+      id: tarefa.id,
+      descricao: tarefa.descricao,
+      prioridade: tarefa.prioridade,
+      status: 'Concluída',
+    );
+
+    await dbHelper.atualizarTarefa(tarefaAtualizada);
+
+    await carregarTarefas();
+  }
+
+  // DELETE
+  Future<void> excluirTarefa(int id) async {
+    await dbHelper.excluirTarefa(id);
+
+    await carregarTarefas();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Minha Localização')),
+      appBar: AppBar(title: const Text('Minhas Tarefas')),
 
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsetsGeometry.all(20),
+      body: Column(
+        children: [
+          // FORMULÁRIO
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                TextField(
+                  controller: descricaoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Descrição da tarefa',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
 
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Icon(Icons.location_on, size: 60, color: Colors.blue),
+                const SizedBox(height: 12),
 
-              const SizedBox(height: 20),
+                DropdownButtonFormField<String>(
+                  value: prioridadeSelecionada,
+                  decoration: const InputDecoration(
+                    labelText: 'Prioridade',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Baixa', child: Text('Baixa')),
+                    DropdownMenuItem(value: 'Média', child: Text('Média')),
+                    DropdownMenuItem(value: 'Alta', child: Text('Alta')),
+                  ],
+                  onChanged: (valor) {
+                    if (valor != null) {
+                      setState(() {
+                        prioridadeSelecionada = valor;
+                      });
+                    }
+                  },
+                ),
 
-              const Text(
-                'Localização atual',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
+                const SizedBox(height: 12),
 
-              const SizedBox(height: 30),
-
-              Text('Latitude: $latitude', style: const TextStyle(fontSize: 18)),
-
-              const SizedBox(height: 20),
-
-              Text(
-                'Longitude: $longitude',
-                style: const TextStyle(fontSize: 18),
-              ),
-
-              Text(
-                'Distância até casa: ${distancia.toStringAsFixed(0)} metros',
-               style: const TextStyle(fontSize: 18),
-              ),
-
-              const SizedBox(height: 30),
-
-              const SizedBox(height: 30),
-
-              ElevatedButton(
-                onPressed: buscarLocalizacao,
-                child: const Text('Buscar Localização'),
-              ),
-            ], // Fim do Column
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: adicionarTarefa,
+                    child: const Text('ADICIONAR TAREFA'),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+
+          const Divider(),
+
+          // LISTAGEM
+          Expanded(
+            child: tarefas.isEmpty
+                ? const Center(child: Text('Nenhuma tarefa cadastrada.'))
+                : ListView.builder(
+                    itemCount: tarefas.length,
+                    itemBuilder: (context, index) {
+                      final tarefa = tarefas[index];
+
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
+                        ),
+
+                        child: ListTile(
+                          leading: CircleAvatar(child: Text('${tarefa.id}')),
+
+                          title: Text(
+                            tarefa.descricao,
+                            style: TextStyle(
+                              decoration: tarefa.status == 'Concluída'
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+
+                          subtitle: Text(
+                            'Prioridade: ${tarefa.prioridade}\n'
+                            'Status: ${tarefa.status}',
+                          ),
+
+                          isThreeLine: true,
+
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Concluir
+                              if (tarefa.status != 'Concluída')
+                                IconButton(
+                                  icon: const Icon(Icons.check),
+                                  tooltip: 'Concluir',
+                                  onPressed: () {
+                                    concluirTarefa(tarefa);
+                                  },
+                                ),
+
+                              // Excluir
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                tooltip: 'Excluir',
+                                onPressed: () {
+                                  excluirTarefa(tarefa.id!);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    descricaoController.dispose();
+
+    super.dispose();
   }
 }
